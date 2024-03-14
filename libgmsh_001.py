@@ -140,14 +140,8 @@ def get_boundary_entity(model, surface):
     #print(boundary_line)
 
 def get_xyz_of_point(model, point):
-    xyz = []
-    for i in range(len(point)):
-        temp = []
-        for j in point[i]:
-            x = list(model.getValue(0, j[1], []))
-            temp.append(x)
-        xyz.append(temp)
-    #print(xyz)
+    xyz = model.getValue(0, point, [])
+    return xyz
 
 def create_mesh_2d(outer, inner, shape, dia, lc):
     # create a new model
@@ -162,6 +156,7 @@ def create_mesh_2d(outer, inner, shape, dia, lc):
     cp, cs   = apply_circle(model, inner, dia)
     stag2    = 100
     model.occ.cut([(2,stag1)],[(2,i) for i in cs], tag=stag2, removeObject=True, removeTool=False)
+    stag3 = [stag2] + cs
 
     # draw meshing reference line to embed
     xlist = [0, -0.6/2, 0.6/2, -1.3/2, 1.3/2]     # user input
@@ -169,7 +164,7 @@ def create_mesh_2d(outer, inner, shape, dia, lc):
     xline = add_line_x(model, shape[1], xlist)
     yline = add_line_y(model, shape[0], ylist)
     # occ.fragment
-    fragout = model.occ.fragment([(2, stag2)], [(1, i) for i in xline], removeObject=True, removeTool=True)
+    fragout = model.occ.fragment([(2, i) for i in stag3], [(1, j) for j in xline], removeObject=True, removeTool=True)
     surface = collect_surface(fragout)
     fragout = model.occ.fragment(surface, [(1, i) for i in yline], removeObject=True, removeTool=True)
     surface = collect_surface(fragout)
@@ -178,9 +173,17 @@ def create_mesh_2d(outer, inner, shape, dia, lc):
     # before finish CAD geom
     model.occ.synchronize()
 
+    '''
+    # error: point on surface edge
     # embed cp in cs
-    for i, j in enumerate(cp):
-        model.mesh.embed(0, [j], 2, cs[i])
+    for i in cp:
+        xyz = get_xyz_of_point(model, i)
+        for j in surface:
+            if model.isInside(2, j[1], xyz) == 1:
+                print(f'point {i} is in surface {j[1]}')
+                model.mesh.embed(0, [i], 2, j[1])
+                break
+    '''
 
     # define physical group
     model.addPhysicalGroup(2, [i[1] for i in surface], name="pilecap")
